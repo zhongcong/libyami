@@ -1126,6 +1126,15 @@ bool VaapiDPBManager::execRefPicMarkingAdaptive1(const PicturePtr& picture,
             setH264PictureReference(refPicture,
                                     VAAPI_PICTURE_FLAG_LONG_TERM_REFERENCE,
                                     VAAPI_PICTURE_IS_COMPLETE(picture));
+
+            /* Assign LongTermFrameIdx to the other field if it was also
+               marked as "used for long-term reference */
+            PicturePtr strong;
+            if (!(strong = refPicture->m_otherField.lock()))
+                return false;
+            VaapiDecPictureH264* otherField = strong.get();
+            if (otherField && VAAPI_H264_PICTURE_IS_LONG_TERM_REFERENCE(otherField))
+                otherField->m_longTermFrameIdx = refPicMarking->long_term_frame_idx;
         }
         break;
     case 4:
@@ -1180,6 +1189,15 @@ bool VaapiDPBManager::execRefPicMarkingAdaptive1(const PicturePtr& picture,
             setH264PictureReference(picture.get(),
                                     VAAPI_PICTURE_FLAG_LONG_TERM_REFERENCE,
                                     VAAPI_PICTURE_IS_COMPLETE(picture));
+
+            /* Assign LongTermFrameIdx to the other field if it was also
+               marked as "used for long-term reference */
+            PicturePtr strong;
+            if (!(strong = picture->m_otherField.lock()))
+                return false;
+            VaapiDecPictureH264* otherField = strong.get();
+            if (otherField && VAAPI_H264_PICTURE_IS_LONG_TERM_REFERENCE(otherField))
+                otherField->m_longTermFrameIdx = refPicMarking->long_term_frame_idx;
         }
         break;
     default:
