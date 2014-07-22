@@ -866,6 +866,7 @@ void VaapiDPBManager::initPictureRefsPicNum(const PicturePtr& picture,
                                             const SliceHeaderPtr& sliceHdr,
                                             int32_t frameNum)
 {
+    printf("/---init_lists start...\n");
     H264PPS *const pps = sliceHdr->pps;
     H264SPS *const sps = pps->sequence;
     const int32_t maxFrameNum = 1 << (sps->log2_max_frame_num_minus4 + 4);
@@ -902,8 +903,11 @@ void VaapiDPBManager::initPictureRefsPicNum(const PicturePtr& picture,
                 pic->m_longTermPicNum = 2 * pic->m_longTermFrameIdx + 1;
             else
                 pic->m_longTermPicNum = 2 * pic->m_longTermFrameIdx;
+
         }
+        printf("longTermPicNum : %d, frame_num : %d\n", pic->m_longTermPicNum, pic->m_frameNum);
     }
+    printf("\\---init_lists end...\n\n");
 }
 
 void VaapiDPBManager::execPictureRefsModification(const PicturePtr& picture,
