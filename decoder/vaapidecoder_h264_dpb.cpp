@@ -890,6 +890,7 @@ void VaapiDPBManager::initPictureRefsPicNum(const PicturePtr& picture,
             else
                 pic->m_picNum = 2 * pic->m_frameNumWrap;
         }
+        printf("PicNum : %d, frame_num : %d\n", pic->m_picNum, pic->m_frameNum);
     }
 
     for (i = 0; i < DPBLayer->longRefCount; i++) {
