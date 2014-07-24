@@ -556,6 +556,7 @@ bool VaapiDecoderH264::initPicture(const PicturePtr& picture,
     picture->m_frameNumWrap = m_frameNum;
     picture->m_outputFlag = true;   /* XXX: conformant to Annex A only */
     picture->m_timeStamp = m_currentPTS;
+    static bool isPrint = false;
 
     /* Reset decoder state for IDR pictures */
     if (nalu->idr_pic_flag) {
@@ -571,6 +572,11 @@ bool VaapiDecoderH264::initPicture(const PicturePtr& picture,
     if (!sliceHdr->field_pic_flag)
         picture->m_picStructure = VAAPI_PICTURE_STRUCTURE_FRAME;
     else {
+        if (!isPrint) {
+            isPrint = true;
+            printf("VAAPI_PICTURE_FLAG_INTERLACED\n");
+        }
+
         VAAPI_PICTURE_FLAG_SET(picture, VAAPI_PICTURE_FLAG_INTERLACED);
         if (!sliceHdr->bottom_field_flag)
             picture->m_picStructure = VAAPI_PICTURE_STRUCTURE_TOP_FIELD;
