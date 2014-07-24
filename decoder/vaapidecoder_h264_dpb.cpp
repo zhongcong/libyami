@@ -1265,7 +1265,15 @@ bool VaapiDPBManager::execRefPicMarkingSlidingWindow(const PicturePtr& picture)
 int32_t VaapiDPBManager::findShortRermReference(uint32_t picNum)
 {
     uint32_t i;
+    printf ("/start findShortTermReference\n");//add by zhongcong
 
+    printf("picNum : %d\n", picNum);
+
+    for (i = 0; i < DPBLayer->shortRefCount; i++) {
+        printf("top_field    picNum : %d\n", DPBLayer->shortRef[i]->m_picNum);//add by zhongcong
+        printf("bottom_field picNum : %d\n", DPBLayer->shortRef[i]->m_otherField.lock().get()->m_picNum);//add by zhongcong
+    }
+    
     for (i = 0; i < DPBLayer->shortRefCount; i++) {
         if (DPBLayer->shortRef[i]->m_picNum == picNum)
             return i;
