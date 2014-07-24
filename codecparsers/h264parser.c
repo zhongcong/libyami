@@ -1901,6 +1901,7 @@ h264_parser_parse_slice_hdr (H264NalParser * nalparser,
     NAL_READ_UINT8 (&nr, slice->colour_plane_id, 2);
 
   NAL_READ_UINT16 (&nr, slice->frame_num, sps->log2_max_frame_num_minus4 + 4);
+  printf("frame_num : %d\n", slice->frame_num);
 
   if (!sps->frame_mbs_only_flag) {
     NAL_READ_UINT8 (&nr, slice->field_pic_flag, 1);
