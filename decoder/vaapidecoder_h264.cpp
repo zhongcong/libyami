@@ -1111,6 +1111,7 @@ Decode_Status VaapiDecoderH264::decodeCurrentPicture()
 
     if (!m_currentPicture->decode())
         goto error;
+    printf("<decodeCurrentPicture>, poc : %d, frameNum : %d\n", m_currentPicture->m_POC, m_currentPicture->m_frameNum);
 
     if (!storeDecodedPicture(m_currentPicture))
         goto error;
@@ -1548,6 +1549,7 @@ const VideoRenderBuffer *VaapiDecoderH264::getOutput(bool draining)
     static int renderPictureCount = 0;
 #endif
     if (draining) {
+        printf("-----------got draining, flushOutport\n");
         flushOutport();
     }
 
@@ -1565,9 +1567,11 @@ const VideoRenderBuffer *VaapiDecoderH264::getOutput(bool draining)
 
 void VaapiDecoderH264::flushOutport(void)
 {
+    printf("/---flushOutport start...\n");
     // decodeSequenceEnd() drains dpb automatically
     if (decodeSequenceEnd() != DECODE_SUCCESS)
         ERROR("fail to decode current picture upon EOS");
+    printf("\\---flushOutport end...\n");
 }
 
 bool VaapiDecoderH264::

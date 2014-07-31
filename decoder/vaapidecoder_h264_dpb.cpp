@@ -296,6 +296,7 @@ bool VaapiDPBManager::bumpDPB()
     }
     if (!foundPicture)
         return false;
+    printf("<bumpDPB>outputpicture, poc : %d, frameNum : %d\n", foundPicture->m_POC, foundPicture->m_frameNum);
 
     success = outputDPB(DPBLayer->DPB[frameIndex], foundPicture);
 
