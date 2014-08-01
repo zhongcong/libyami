@@ -276,6 +276,7 @@ void VaapiDPBManager::evictDPB(uint32_t idx)
 
 bool VaapiDPBManager::bumpDPB()
 {
+    printf("\t/---start bumpDPB...\n");
     PicturePtr foundPicture;
     uint32_t i, j, frameIndex;
     bool success;
@@ -294,13 +295,18 @@ bool VaapiDPBManager::bumpDPB()
                 foundPicture = picture, frameIndex = i;
         }
     }
-    if (!foundPicture)
+    if (!foundPicture) {
+        printf("\t\\---end bumpDPB(fail)..., can't find picture to bump\n");
         return false;
-    printf("<bumpDPB>outputpicture, poc : %d, frameNum : %d\n", foundPicture->m_POC, foundPicture->m_frameNum);
+    }
 
     success = outputDPB(DPBLayer->DPB[frameIndex], foundPicture);
 
     evictDPB(frameIndex);
+    if (success)
+        printf("\t\\---end bumpDPB(success)..., poc : %d, frameNum : %d\n", foundPicture->m_POC, foundPicture->m_frameNum);
+    else
+        printf("\t\\---end bumpDPB(fail)..., poc : %d, frameNum : %d\n", foundPicture->m_POC, foundPicture->m_frameNum);
     return success;
 }
 
@@ -323,8 +329,10 @@ void VaapiDPBManager::flushDPB()
 
 void VaapiDPBManager::drainDPB()
 {
+    printf("/---start drain dpb\n");
     outputImmediateBFrame();
     while (bumpDPB()) ;
+    printf("\\---end drain dpb\n");
 }
 
 void VaapiDPBManager::debugDPBStatus()
@@ -377,6 +385,7 @@ bool VaapiDPBManager::addDPB(const VaapiFrameStore::Ptr& newFrameStore,
     // C.4.5.1 - Storage and marking of a reference decoded picture into the DPB
     if (VAAPI_PICTURE_IS_REFERENCE(pic)) {
         while (DPBLayer->DPBCount == DPBLayer->DPBSize) {
+            printf("<addDPB> before bumpDPB,C.4.5.1 \n");
             if (!bumpDPB())
                 return false;
         }
@@ -411,6 +420,8 @@ bool VaapiDPBManager::addDPB(const VaapiFrameStore::Ptr& newFrameStore,
                 }
                 return ret;
             }
+
+            printf("<addDPB> before bumpDPB,C.4.5.2 \n");
             if (!bumpDPB())
                 return false;
         }
