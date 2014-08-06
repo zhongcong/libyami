@@ -39,14 +39,77 @@ class StreamInput {
 public:
     StreamInput();
     ~StreamInput();
-    bool init(const char* fileName);
-    bool getOneFrameInput(VideoEncodeBuffer &inputBuffer);
-    bool isEOS() {return m_parseTOEOS;};
+    bool init(const char* fileName, const int width, const int height, const int frameNum);
+    bool getOneFrameInput(VideoEncRawBuffer &inputBuffer);
+    bool isFinish() {return m_readToFinish;};
 
 private:
-    bool m_readToEOS;
-    bool m_parseToEOS;
+    FILE *m_fp;
+    int m_width;
+    int m_height;
+    int m_frameNum;
+    int m_frameSize;
+    uint32_t m_lastReadOffset;
+    uint8_t *m_buffer;
+
+    bool m_readToFinish;
 };
+
+StreamInput::StreamInput()
+    : m_fp(NULL)
+    , m_width(0)
+    , m_height(0)
+    , m_frameNum(0)
+    , m_frameSize(0)
+    , m_lastReadOffset(0)
+    , m_buffer(NULL)
+    , m_readToFinish(false)
+{
+}
+
+bool StreamInput::init(const char* fileName, const int width, const int height, const int frameNum)
+{
+    int32_t offset = -1;
+    m_width = width;
+    m_height = height;
+    m_frameNum = frameNum;
+    m_frameSize = m_width * m_height * 3 / 2;
+    
+    m_fp = fopen(fileName, "r");
+    if (!m_fp) {
+        fprintf(stderr, "fail to open input file: %s", fileName);
+        return false;
+    }
+
+    m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
+    return true;
+}
+
+bool StreamInput::getOneFrameInput(VideoEncRawBuffer &inputBuffer)
+{
+    if (m_readToFinish)
+        return false;
+
+    if (fread(m_buffer, sizeof(uint8_t), m_frameSize, m_fp) != m_frameSize)
+        return false;
+
+    //parsing data for one frame
+    inputBuffer.data = m_buffer;
+    inputBuffer.size = m_frameSize;
+
+//    DEBUG();
+//    m_lastReadOffset += m_frameSize;
+    return true;
+}
+
+StreamInput::~StreamInput()
+{
+    if(m_fp)
+        fclose(m_fp);
+
+    if(m_buffer)
+        free(m_buffer);
+}
 
 int main(int argc, char** argv)
 {
@@ -56,7 +119,7 @@ int main(int argc, char** argv)
     VideoEncRawBuffer inputBuffer;
     VideoEncOutputBuffer outputBuffer;
     Display *x11Display = NULL;
-    VideoConfigBuffer configBuffer;
+    //VideoConfigBuffer configBuffer;
     Encode_Status status;
     Window window = 0;
     int32_t videoWidth = 0, videoHeight = 0;
@@ -68,7 +131,7 @@ int main(int argc, char** argv)
     fileName = argv[1];
     INFO("yuv fileName: %s\n", fileName);
 
-    if (!input.init(fileName)) {
+    if (!input.init(fileName, 320, 280, 1)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
@@ -80,28 +143,39 @@ int main(int argc, char** argv)
     //encoder->setParameters();//use default parameters
     //Note: do we need width/height
     status = encoder->start(); 
-
+#if 0
     while (!input.isEOS())
     {
-        if (input.getOneFrameInput(inputBuffer)) {
+        if (input.getOneFrameInput(inputBuffer))
             status = encoder->encode(&inputBuffer);
         else
             break;
 
         // render the frame if avaiable
         do {
-           status = encoder->getOutput();
+           status = encoder->getOutput(&outputBuffer, false);
            //after getOutput buffer, we should write to file.
-           output.write2File();
         } while (status != ENCODE_BUFFER_NO_MORE);
     }
 
     // drain the output buffer
     do {
-       status = encoder->getOutput();
+       status = encoder->getOutput(&outputBuffer, false);
        //after getOutput buffer, we should write to file.
        output.write2File();
     } while (status != ENCODE_BUFFER_NO_MORE);
+#endif
+
+#if 1
+    input.getOneFrameInput(inputBuffer);
+    status = encoder->encode(&inputBuffer);
+        
+    // render the frame if avaiable
+    do {
+       status = encoder->getOutput(&outputBuffer, false);
+       //after getOutput buffer, we should write to file.
+    } while (status != ENCODE_BUFFER_NO_MORE);
+#endif
 
     encoder->stop();
     releaseVideoEncoder(encoder);
