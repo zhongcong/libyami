@@ -35,6 +35,12 @@
 #include "VideoEncoderHost.h"
 
 using namespace YamiMediaCodec;
+const int kIPeriod = 30;
+const int kDefaultFramerate = 30;
+const int WIDTH = 192;
+const int HEIGHT = 128;
+const char* outFilename = "./test.264";
+
 class StreamInput {
 public:
     StreamInput();
@@ -79,6 +85,8 @@ bool StreamInput::init(const char* fileName, const int width, const int height, 
     if (!m_fp) {
         fprintf(stderr, "fail to open input file: %s", fileName);
         return false;
+    } else {
+        printf("open input file : %s ok\n", fileName);
     }
 
     m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
@@ -111,6 +119,29 @@ StreamInput::~StreamInput()
         free(m_buffer);
 }
 
+bool writeOneOutputFrame(uint8_t* data, uint32_t dataSize)
+{
+    static FILE* fp = NULL;
+
+    if(!fp) {
+        fp = fopen(outFilename, "w+");
+        if (!fp) {
+            fprintf(stderr, "fail to open file: %s\n", outFilename);
+            return false;
+        }
+    }
+    
+    if (fwrite(data, 1, dataSize, fp) != dataSize) {
+        assert(0);
+        return false;
+    }
+
+//    if(isOutputEOS)
+//        fclose(fp);
+    
+    return true;
+}
+
 int main(int argc, char** argv)
 {
     const char *fileName = NULL;
@@ -123,6 +154,7 @@ int main(int argc, char** argv)
     Encode_Status status;
     Window window = 0;
     int32_t videoWidth = 0, videoHeight = 0;
+    bool requestSPSPPS = true;
 
     if (argc < 2) {
         fprintf(stderr, "no input file to decode");
@@ -131,7 +163,7 @@ int main(int argc, char** argv)
     fileName = argv[1];
     INFO("yuv fileName: %s\n", fileName);
 
-    if (!input.init(fileName, 320, 280, 1)) {
+    if (!input.init(fileName, WIDTH, HEIGHT, 1)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
@@ -140,8 +172,31 @@ int main(int argc, char** argv)
     encoder = createVideoEncoder("video/h264"); 
     encoder->setXDisplay(x11Display);
 
-    //encoder->setParameters();//use default parameters
-    //Note: do we need width/height
+    //configure encoding parameters
+    VideoParamsCommon encVideoParams;
+    encoder->getParameters(&encVideoParams);
+    {
+        //resolution
+        encVideoParams.resolution.width = WIDTH;
+        encVideoParams.resolution.height = HEIGHT;
+
+        //frame rate parameters.
+        encVideoParams.frameRate.frameRateDenom = 1;
+        encVideoParams.frameRate.frameRateNum = kDefaultFramerate;
+
+        //picture type and bitrate
+        encVideoParams.intraPeriod = kIPeriod;
+        //encVideoParam.rcMode = RATE_CONTROL_CBR;
+        //encVideoParams.rcParams.bitRate = initial_bitrate;
+        encVideoParams.profile = VAProfileH264Main;
+        encVideoParams.rawFormat = RAW_FORMAT_YUV420;
+
+        // bitrate control
+        encVideoParams.rcMode = RATE_CONTROL_CBR;
+    }
+   printf("1\n"); 
+    encoder->setParameters(&encVideoParams);
+   printf("2\n"); 
     status = encoder->start(); 
 #if 0
     while (!input.isEOS())
@@ -167,13 +222,28 @@ int main(int argc, char** argv)
 #endif
 
 #if 1
+   printf("3\n"); 
     input.getOneFrameInput(inputBuffer);
+   printf("4\n"); 
     status = encoder->encode(&inputBuffer);
-        
-    // render the frame if avaiable
+
+    //init output buffer
+    outputBuffer.data = static_cast<uint8_t*>(malloc ((WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t)));
+    outputBuffer.bufferSize = (WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t);
+
+    // output the frame if avaiable
     do {
-       status = encoder->getOutput(&outputBuffer, false);
-       //after getOutput buffer, we should write to file.
+        if (requestSPSPPS) {
+            outputBuffer.format = OUTPUT_CODEC_DATA;
+            requestSPSPPS = false;
+        } else
+            outputBuffer.format = OUTPUT_FRAME_DATA;
+
+        status = encoder->getOutput(&outputBuffer, false);
+        printf("status : %d\n", status);
+        if (!writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
+            assert(0);
+       memset (outputBuffer.data, 0, outputBuffer.bufferSize);
     } while (status != ENCODE_BUFFER_NO_MORE);
 #endif
 
