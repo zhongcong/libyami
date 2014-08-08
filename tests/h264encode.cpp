@@ -37,14 +37,12 @@
 
 using namespace YamiMediaCodec;
 const int kIPeriod = 30;
-const int kDefaultFramerate = 30;
-const char* outFilename = "./test.264";
 
 class StreamInput {
 public:
     StreamInput();
     ~StreamInput();
-    bool init(const char* fileName, const int width, const int height);
+    bool init(const char* inputFileName, const int width, const int height);
     bool getOneFrameInput(VideoEncRawBuffer &inputBuffer);
     bool isEOS() {return m_readToEOS;};
 
@@ -68,18 +66,18 @@ StreamInput::StreamInput()
 {
 }
 
-bool StreamInput::init(const char* fileName, const int width, const int height)
+bool StreamInput::init(const char* inputFileName, const int width, const int height)
 {
     m_width = width;
     m_height = height;
     m_frameSize = m_width * m_height * 3 / 2;
     
-    m_fp = fopen(fileName, "r");
+    m_fp = fopen(inputFileName, "r");
     if (!m_fp) {
-        fprintf(stderr, "fail to open input file: %s", fileName);
+        fprintf(stderr, "fail to open input file: %s", inputFileName);
         return false;
     } else {
-        printf("open input file : %s ok\n", fileName);
+        printf("open input file : %s ok\n", inputFileName);
     }
 
     m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
@@ -123,7 +121,7 @@ class StreamOutput {
 public:    
     StreamOutput();
     ~StreamOutput();
-    bool init(const int width, const int height);
+    bool init(const char* outputFileName, const int width, const int height);
     bool writeOneOutputFrame();
     void resetBuffer();
     VideoEncOutputBuffer outputBuffer;
@@ -147,18 +145,18 @@ StreamOutput::StreamOutput()
 {
 }
 
-bool StreamOutput::init(const int width, const int height)
+bool StreamOutput::init(const char* outputFileName, const int width, const int height)
 {
     m_width = width;
     m_height = height;
     m_frameSize = m_width * m_height * 3 / 2;
     
-    m_fp = fopen(outFilename, "w+");
+    m_fp = fopen(outputFileName, "w+");
     if (!m_fp) {
-        fprintf(stderr, "fail to open output file: %s\n", outFilename);
+        fprintf(stderr, "fail to open output file: %s\n", outputFileName);
         return false;
     } else {
-        printf("open output file : %s ok\n", outFilename);
+        printf("open output file : %s ok\n", outputFileName);
     }
 
     m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
@@ -205,11 +203,12 @@ StreamOutput::~StreamOutput()
 
 int main(int argc, char** argv)
 {
-//    char inputFileName[16] = {0};
-//    char outputFileName[16] = {0};
     char *inputFileName = NULL;
-    char *outputFileName = NULL;
-    int videoWidth = 0, videoHeight = 0, bitRate = 0;
+    char *outputFileName = NULL;    
+    char *codec = NULL;
+    char *colorspace = NULL;
+    int videoWidth = 0, videoHeight = 0, bitRate = 0, fps = 0;
+
     StreamInput input;
     StreamOutput output;
     IVideoEncoder *encoder = NULL;
@@ -219,7 +218,7 @@ int main(int argc, char** argv)
     bool requestSPSPPS = true;
 
     if (argc < 2) {
-        fprintf(stderr, "no input file to decode");
+        fprintf(stderr, "can not encode without option\n");
         return -1;
     }
 
@@ -230,12 +229,10 @@ int main(int argc, char** argv)
         switch (opt) {
         case 'i':
             inputFileName = optarg;
-//            memcpy(inputFileName, optarg, 16);
             printf("inputFileName : %s\n", inputFileName);
             break;
         case 'o':
             outputFileName = optarg;
-//            memcpy(outputFileName, optarg, 16);
             printf("outputFileName : %s\n", outputFileName);
             break;
         case 'W':
@@ -251,16 +248,16 @@ int main(int argc, char** argv)
             printf("bitRate : %d\n", bitRate);
             break;
         case 'f':
-            char fps[16];
-            memcpy(fps, optarg, 16);
+            fps = atoi(optarg);
+            printf("fps : %d\n", fps);
             break;
         case 'c':
-            char codec[8];
-            memcpy(codec, optarg, 8);
+            codec = optarg;
+            printf ("codec : %s\n", codec);
             break;
         case 's':
-            char colorspace[8];
-            memcpy(codec, optarg, 8);
+            colorspace = optarg;
+            printf("colorspace : %s\n", colorspace);
             break;
         case 'h':
             break;
@@ -271,7 +268,25 @@ int main(int argc, char** argv)
     }
 
     //-------------------------------------------
-    INFO("yuv fileName: %s\n", inputFileName);
+    if (!inputFileName) {
+        fprintf(stderr, "can not encode without input file\n");
+        return -1;
+    } else
+        fprintf(stdout, "yuv fileName: %s\n", inputFileName);
+
+    if (!videoWidth || !videoHeight) {
+        fprintf(stderr, "can not encode without video/height\n");
+        return -1;
+    }
+
+    if (!fps)
+        fps = 30;
+
+    if (!bitRate)
+        bitRate = videoWidth * videoHeight * fps  * 8;
+        
+    if (!outputFileName)
+        outputFileName = "test.yuv";
 
     if (!input.init(inputFileName, videoWidth, videoHeight)) {
         fprintf (stderr, "fail to init input stream\n");
@@ -292,13 +307,13 @@ int main(int argc, char** argv)
 
         //frame rate parameters.
         encVideoParams.frameRate.frameRateDenom = 1;
-        encVideoParams.frameRate.frameRateNum = kDefaultFramerate;
+        encVideoParams.frameRate.frameRateNum = fps;
 
         //picture type and bitrate
         encVideoParams.intraPeriod = kIPeriod;
         encVideoParams.rcMode = RATE_CONTROL_CBR;
         //encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate * 3 / 2 * 8;//why this is wrong
-        encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate  * 8;
+        encVideoParams.rcParams.bitRate = bitRate;
         //encVideoParams.rcParams.initQP = 26;
         //encVideoParams.rcParams.minQP = 1;
         
@@ -312,7 +327,7 @@ int main(int argc, char** argv)
     status = encoder->start();
 
     //init output buffer
-    if (!output.init(videoWidth, videoHeight)) {
+    if (!output.init(outputFileName, videoWidth, videoHeight)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
