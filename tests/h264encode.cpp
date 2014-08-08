@@ -132,13 +132,13 @@ bool writeOneOutputFrame(uint8_t* data, uint32_t dataSize)
     }
 
     printf("dataSize : %d\n", dataSize);
-#if 0
+#if 1
     for (int i = 0; i < dataSize; i++) {
-        if ((i + 1) % 8)
+        if (!((i + 1) % 16))
             printf("\n");
-        printf("%2x", *(data + i));
+        printf("\t%2x ", *(data + i));
     }
-    printf("\n")
+    printf("\n");
 #endif
 
     if (fwrite(data, 1, dataSize, fp) != dataSize) {
@@ -254,7 +254,8 @@ int main(int argc, char** argv)
 
         status = encoder->getOutput(&outputBuffer, false);
         printf("status : %d\n", status);
-        if (!writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
+        if (status == ENCODE_SUCCESS &&
+            !writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
             assert(0);
        memset (outputBuffer.data, 0, outputBuffer.bufferSize);
     } while (status != ENCODE_BUFFER_NO_MORE);
