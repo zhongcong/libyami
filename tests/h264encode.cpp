@@ -196,13 +196,14 @@ int main(int argc, char** argv)
 
         //picture type and bitrate
         encVideoParams.intraPeriod = kIPeriod;
-        //encVideoParam.rcMode = RATE_CONTROL_CBR;
-        encVideoParams.rcParams.bitRate = 8847360;
+
+        encVideoParams.rcMode = RATE_CONTROL_CBR;
+        encVideoParams.rcParams.bitRate = WIDTH * HEIGHT * kDefaultFramerate * 8;
+        //encVideoParams.rcParams.initQP = 1;
+        //encVideoParams.rcParams.minQP = 1;
+        
         encVideoParams.profile = VAProfileH264Main;
         encVideoParams.rawFormat = RAW_FORMAT_YUV420;
-
-        // bitrate control
-        encVideoParams.rcMode = RATE_CONTROL_CBR;
 
         encVideoParams.level = 31;
     }
