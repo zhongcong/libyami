@@ -38,8 +38,6 @@
 using namespace YamiMediaCodec;
 const int kIPeriod = 30;
 const int kDefaultFramerate = 30;
-const int WIDTH = 192;
-const int HEIGHT = 128;
 const char* outFilename = "./test.264";
 
 class StreamInput {
@@ -207,15 +205,17 @@ StreamOutput::~StreamOutput()
 
 int main(int argc, char** argv)
 {
-    char inputFileName[16] = {0};
-    char outputFileName[16] = {0};
+//    char inputFileName[16] = {0};
+//    char outputFileName[16] = {0};
+    char *inputFileName = NULL;
+    char *outputFileName = NULL;
+    int videoWidth = 0, videoHeight = 0, bitRate = 0;
     StreamInput input;
     StreamOutput output;
     IVideoEncoder *encoder = NULL;
     VideoEncRawBuffer inputBuffer;
     Display *x11Display = NULL;
     Encode_Status status;
-    int32_t videoWidth = 0, videoHeight = 0;
     bool requestSPSPPS = true;
 
     if (argc < 2) {
@@ -229,26 +229,26 @@ int main(int argc, char** argv)
     {
         switch (opt) {
         case 'i':
-            memcpy(inputFileName, optarg, 16);
+            inputFileName = optarg;
+//            memcpy(inputFileName, optarg, 16);
             printf("inputFileName : %s\n", inputFileName);
             break;
         case 'o':
-            memcpy(outputFileName, optarg, 16);
+            outputFileName = optarg;
+//            memcpy(outputFileName, optarg, 16);
             printf("outputFileName : %s\n", outputFileName);
             break;
         case 'W':
-            char width[8];
-            memcpy(width, optarg, 8);
-            printf("width : %s\n", width);
+            videoWidth = atoi(optarg);
+            printf("width : %d\n", videoWidth);
             break;
         case 'H':
-            char height[8];
-            memcpy(height, optarg, 8);
-            printf("height : %s\n", height);
+            videoHeight = atoi(optarg);
+            printf("height : %d\n", videoHeight);
             break;
         case 'b':
-            char bitRate[16];
-            memcpy(bitRate, optarg, 16);
+            bitRate = atoi(optarg);
+            printf("bitRate : %d\n", bitRate);
             break;
         case 'f':
             char fps[16];
@@ -273,7 +273,7 @@ int main(int argc, char** argv)
     //-------------------------------------------
     INFO("yuv fileName: %s\n", inputFileName);
 
-    if (!input.init(inputFileName, WIDTH, HEIGHT)) {
+    if (!input.init(inputFileName, videoWidth, videoHeight)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
@@ -287,8 +287,8 @@ int main(int argc, char** argv)
     encoder->getParameters(&encVideoParams);
     {
         //resolution
-        encVideoParams.resolution.width = WIDTH;
-        encVideoParams.resolution.height = HEIGHT;
+        encVideoParams.resolution.width = videoWidth;
+        encVideoParams.resolution.height = videoHeight;
 
         //frame rate parameters.
         encVideoParams.frameRate.frameRateDenom = 1;
@@ -297,8 +297,8 @@ int main(int argc, char** argv)
         //picture type and bitrate
         encVideoParams.intraPeriod = kIPeriod;
         encVideoParams.rcMode = RATE_CONTROL_CBR;
-        encVideoParams.rcParams.bitRate = WIDTH * HEIGHT * kDefaultFramerate * 8;
-        //encVideoParams.rcParams.initQP = 1;
+        encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate * 3 / 2 * 8;
+        //encVideoParams.rcParams.initQP = 26;
         //encVideoParams.rcParams.minQP = 1;
         
         encVideoParams.profile = VAProfileH264Main;
@@ -311,7 +311,7 @@ int main(int argc, char** argv)
     status = encoder->start();
 
     //init output buffer
-    if (!output.init(WIDTH, HEIGHT)) {
+    if (!output.init(videoWidth, videoHeight)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
