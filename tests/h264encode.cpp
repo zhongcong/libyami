@@ -297,7 +297,8 @@ int main(int argc, char** argv)
         //picture type and bitrate
         encVideoParams.intraPeriod = kIPeriod;
         encVideoParams.rcMode = RATE_CONTROL_CBR;
-        encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate * 3 / 2 * 8;
+        //encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate * 3 / 2 * 8;//why this is wrong
+        encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate  * 8;
         //encVideoParams.rcParams.initQP = 26;
         //encVideoParams.rcParams.minQP = 1;
         
