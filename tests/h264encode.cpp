@@ -47,7 +47,7 @@ public:
     ~StreamInput();
     bool init(const char* fileName, const int width, const int height, const int frameNum);
     bool getOneFrameInput(VideoEncRawBuffer &inputBuffer);
-    bool isFinish() {return m_readToFinish;};
+    bool isEOS() {return m_readToEOS;};
 
 private:
     FILE *m_fp;
@@ -58,7 +58,7 @@ private:
     uint32_t m_lastReadOffset;
     uint8_t *m_buffer;
 
-    bool m_readToFinish;
+    bool m_readToEOS;
 };
 
 StreamInput::StreamInput()
@@ -69,7 +69,7 @@ StreamInput::StreamInput()
     , m_frameSize(0)
     , m_lastReadOffset(0)
     , m_buffer(NULL)
-    , m_readToFinish(false)
+    , m_readToEOS(false)
 {
 }
 
@@ -95,18 +95,25 @@ bool StreamInput::init(const char* fileName, const int width, const int height, 
 
 bool StreamInput::getOneFrameInput(VideoEncRawBuffer &inputBuffer)
 {
-    if (m_readToFinish)
+    if (m_readToEOS)
         return false;
 
-    if (fread(m_buffer, sizeof(uint8_t), m_frameSize, m_fp) != m_frameSize)
+    static int num = 0;
+    
+    int ret = fread(m_buffer, sizeof(uint8_t), m_frameSize, m_fp);
+
+    if (ret <= 0) {
+        m_readToEOS = true;
         return false;
+    } else if (ret < m_frameSize) {
+        printf ("data is not enough to read, maybe resolution is wrong\n");
+        return false;
+    } else {
+        printf ("frame num : %d\n", ++num);
+        inputBuffer.data = m_buffer;
+        inputBuffer.size = m_frameSize;
+    }
 
-    //parsing data for one frame
-    inputBuffer.data = m_buffer;
-    inputBuffer.size = m_frameSize;
-
-//    DEBUG();
-//    m_lastReadOffset += m_frameSize;
     return true;
 }
 
@@ -118,6 +125,7 @@ StreamInput::~StreamInput()
     if(m_buffer)
         free(m_buffer);
 }
+
 
 bool writeOneOutputFrame(uint8_t* data, uint32_t dataSize)
 {
@@ -132,7 +140,7 @@ bool writeOneOutputFrame(uint8_t* data, uint32_t dataSize)
     }
 
     printf("dataSize : %d\n", dataSize);
-#if 1
+#if 0
     for (int i = 0; i < dataSize; i++) {
         if (!((i + 1) % 16))
             printf("\n");
@@ -254,33 +262,6 @@ int main(int argc, char** argv)
 
     //Note: release output buffer
     
-#if 0
-   printf("3\n"); 
-    input.getOneFrameInput(inputBuffer);
-   printf("4\n"); 
-    status = encoder->encode(&inputBuffer);
-
-    //init output buffer
-    outputBuffer.bufferSize = (WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t);
-    outputBuffer.data = static_cast<uint8_t*>(malloc(outputBuffer.bufferSize));
-
-    // output the frame if avaiable
-    do {
-        if (requestSPSPPS) {
-            outputBuffer.format = OUTPUT_CODEC_DATA;
-            requestSPSPPS = false;
-        } else
-            outputBuffer.format = OUTPUT_FRAME_DATA;
-
-        status = encoder->getOutput(&outputBuffer, false);
-        printf("status : %d\n", status);
-        if (status == ENCODE_SUCCESS &&
-            !writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
-            assert(0);
-       memset (outputBuffer.data, 0, outputBuffer.bufferSize);
-    } while (status != ENCODE_BUFFER_NO_MORE);
-#endif
-
     encoder->stop();
     releaseVideoEncoder(encoder);
 }
