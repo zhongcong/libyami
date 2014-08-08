@@ -211,7 +211,11 @@ int main(int argc, char** argv)
     encoder->setParameters(&encVideoParams);
    printf("2\n"); 
     status = encoder->start(); 
-#if 0
+#if 1
+    //init output buffer
+    outputBuffer.bufferSize = (WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t);
+    outputBuffer.data = static_cast<uint8_t*>(malloc(outputBuffer.bufferSize));
+
     while (!input.isEOS())
     {
         if (input.getOneFrameInput(inputBuffer))
@@ -219,10 +223,20 @@ int main(int argc, char** argv)
         else
             break;
 
-        // render the frame if avaiable
+        // try to get one output buffer.
         do {
-           status = encoder->getOutput(&outputBuffer, false);
-           //after getOutput buffer, we should write to file.
+            if (requestSPSPPS) {
+                outputBuffer.format = OUTPUT_CODEC_DATA;
+                requestSPSPPS = false;
+            } else
+                outputBuffer.format = OUTPUT_FRAME_DATA;
+
+            status = encoder->getOutput(&outputBuffer, false);
+            printf("status : %d\n", status);
+            if (status == ENCODE_SUCCESS &&
+                !writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
+                assert(0);
+            memset (outputBuffer.data, 0, outputBuffer.bufferSize);
         } while (status != ENCODE_BUFFER_NO_MORE);
     }
 
@@ -230,11 +244,17 @@ int main(int argc, char** argv)
     do {
        status = encoder->getOutput(&outputBuffer, false);
        //after getOutput buffer, we should write to file.
-       output.write2File();
+       printf("status : %d\n", status);
+       if (status == ENCODE_SUCCESS &&
+           !writeOneOutputFrame(outputBuffer.data, outputBuffer.dataSize))
+           assert(0);
+       memset (outputBuffer.data, 0, outputBuffer.bufferSize);
     } while (status != ENCODE_BUFFER_NO_MORE);
 #endif
 
-#if 1
+    //Note: release output buffer
+    
+#if 0
    printf("3\n"); 
     input.getOneFrameInput(inputBuffer);
    printf("4\n"); 
