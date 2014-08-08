@@ -130,7 +130,17 @@ bool writeOneOutputFrame(uint8_t* data, uint32_t dataSize)
             return false;
         }
     }
-    
+
+    printf("dataSize : %d\n", dataSize);
+#if 0
+    for (int i = 0; i < dataSize; i++) {
+        if ((i + 1) % 8)
+            printf("\n");
+        printf("%2x", *(data + i));
+    }
+    printf("\n")
+#endif
+
     if (fwrite(data, 1, dataSize, fp) != dataSize) {
         assert(0);
         return false;
@@ -174,7 +184,7 @@ int main(int argc, char** argv)
 
     //configure encoding parameters
     VideoParamsCommon encVideoParams;
-    encoder->getParameters(&encVideoParams);
+//    encoder->getParameters(&encVideoParams);
     {
         //resolution
         encVideoParams.resolution.width = WIDTH;
@@ -187,12 +197,14 @@ int main(int argc, char** argv)
         //picture type and bitrate
         encVideoParams.intraPeriod = kIPeriod;
         //encVideoParam.rcMode = RATE_CONTROL_CBR;
-        //encVideoParams.rcParams.bitRate = initial_bitrate;
+        encVideoParams.rcParams.bitRate = 8847360;
         encVideoParams.profile = VAProfileH264Main;
         encVideoParams.rawFormat = RAW_FORMAT_YUV420;
 
         // bitrate control
         encVideoParams.rcMode = RATE_CONTROL_CBR;
+
+        encVideoParams.level = 31;
     }
    printf("1\n"); 
     encoder->setParameters(&encVideoParams);
@@ -228,8 +240,8 @@ int main(int argc, char** argv)
     status = encoder->encode(&inputBuffer);
 
     //init output buffer
-    outputBuffer.data = static_cast<uint8_t*>(malloc ((WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t)));
     outputBuffer.bufferSize = (WIDTH * HEIGHT * 3 / 2) * sizeof (uint8_t);
+    outputBuffer.data = static_cast<uint8_t*>(malloc(outputBuffer.bufferSize));
 
     // output the frame if avaiable
     do {
