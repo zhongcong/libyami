@@ -24,6 +24,7 @@
 #endif
 
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -206,7 +207,8 @@ StreamOutput::~StreamOutput()
 
 int main(int argc, char** argv)
 {
-    const char *fileName = NULL;
+    char inputFileName[16] = {0};
+    char outputFileName[16] = {0};
     StreamInput input;
     StreamOutput output;
     IVideoEncoder *encoder = NULL;
@@ -220,10 +222,58 @@ int main(int argc, char** argv)
         fprintf(stderr, "no input file to decode");
         return -1;
     }
-    fileName = argv[1];
-    INFO("yuv fileName: %s\n", fileName);
 
-    if (!input.init(fileName, WIDTH, HEIGHT)) {
+    //-------------------------------------------
+    int opt;
+    while ((opt = getopt(argc, argv, "W:H:b:f:c:s:i:o:h")) != -1)
+    {
+        switch (opt) {
+        case 'i':
+            memcpy(inputFileName, optarg, 16);
+            printf("inputFileName : %s\n", inputFileName);
+            break;
+        case 'o':
+            memcpy(outputFileName, optarg, 16);
+            printf("outputFileName : %s\n", outputFileName);
+            break;
+        case 'W':
+            char width[8];
+            memcpy(width, optarg, 8);
+            printf("width : %s\n", width);
+            break;
+        case 'H':
+            char height[8];
+            memcpy(height, optarg, 8);
+            printf("height : %s\n", height);
+            break;
+        case 'b':
+            char bitRate[16];
+            memcpy(bitRate, optarg, 16);
+            break;
+        case 'f':
+            char fps[16];
+            memcpy(fps, optarg, 16);
+            break;
+        case 'c':
+            char codec[8];
+            memcpy(codec, optarg, 8);
+            break;
+        case 's':
+            char colorspace[8];
+            memcpy(codec, optarg, 8);
+            break;
+        case 'h':
+            break;
+        case '?':
+            printf("Unknown option: %c\n", (char)optopt);
+            break;
+        }
+    }
+
+    //-------------------------------------------
+    INFO("yuv fileName: %s\n", inputFileName);
+
+    if (!input.init(inputFileName, WIDTH, HEIGHT)) {
         fprintf (stderr, "fail to init input stream\n");
         return -1;
     }
