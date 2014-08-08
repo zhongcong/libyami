@@ -126,6 +126,7 @@ public:
     ~StreamOutput();
     bool init(const int width, const int height);
     bool writeOneOutputFrame();
+    void resetBuffer();
     VideoEncOutputBuffer outputBuffer;
 
 private:
@@ -184,8 +185,14 @@ bool StreamOutput::writeOneOutputFrame()
         assert(0);
         return false;
     }
-    
+
+    resetBuffer();
     return true;
+}
+
+void StreamOutput::resetBuffer()
+{
+    memset (outputBuffer.data, 0, outputBuffer.bufferSize);
 }
 
 StreamOutput::~StreamOutput()
@@ -278,18 +285,15 @@ int main(int argc, char** argv)
             printf("status : %d\n", status);
             if (status == ENCODE_SUCCESS && !output.writeOneOutputFrame())
                 assert(0);
-            memset (output.outputBuffer.data, 0, output.outputBuffer.bufferSize);
         } while (status != ENCODE_BUFFER_NO_MORE);
     }
 
     // drain the output buffer
     do {
        status = encoder->getOutput(&output.outputBuffer, false);
-       //after getOutput buffer, we should write to file.
        printf("status : %d\n", status);
        if (status == ENCODE_SUCCESS && !output.writeOneOutputFrame())
            assert(0);
-       memset (output.outputBuffer.data, 0, output.outputBuffer.bufferSize);
     } while (status != ENCODE_BUFFER_NO_MORE);
 
     encoder->stop();
