@@ -37,6 +37,11 @@
 
 using namespace YamiMediaCodec;
 const int kIPeriod = 30;
+char *inputFileName = NULL;
+char *outputFileName = NULL;    
+char *codec = NULL;
+char *colorspace = NULL;
+int videoWidth = 0, videoHeight = 0, bitRate = 0, fps = 0;
 
 class StreamInput {
 public:
@@ -76,8 +81,6 @@ bool StreamInput::init(const char* inputFileName, const int width, const int hei
     if (!m_fp) {
         fprintf(stderr, "fail to open input file: %s", inputFileName);
         return false;
-    } else {
-        printf("open input file : %s ok\n", inputFileName);
     }
 
     m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
@@ -97,10 +100,9 @@ bool StreamInput::getOneFrameInput(VideoEncRawBuffer &inputBuffer)
         m_readToEOS = true;
         return false;
     } else if (ret < m_frameSize) {
-        printf ("data is not enough to read, maybe resolution is wrong\n");
+        fprintf (stderr, "data is not enough to read, maybe resolution is wrong\n");
         return false;
     } else {
-        printf ("frame num : %d\n", ++num);
         inputBuffer.data = m_buffer;
         inputBuffer.size = m_frameSize;
     }
@@ -155,8 +157,6 @@ bool StreamOutput::init(const char* outputFileName, const int width, const int h
     if (!m_fp) {
         fprintf(stderr, "fail to open output file: %s\n", outputFileName);
         return false;
-    } else {
-        printf("open output file : %s ok\n", outputFileName);
     }
 
     m_buffer = static_cast<uint8_t*>(malloc(m_frameSize));
@@ -168,16 +168,6 @@ bool StreamOutput::init(const char* outputFileName, const int width, const int h
 
 bool StreamOutput::writeOneOutputFrame()
 {
-    printf("dataSize : %d\n", outputBuffer.dataSize);
-#if 0
-    for (int i = 0; i < dataSize; i++) {
-        if (!((i + 1) % 16))
-            printf("\n");
-        printf("\t%2x ", *(data + i));
-    }
-    printf("\n");
-#endif
-
     if (fwrite(m_buffer, 1, outputBuffer.dataSize, m_fp) != outputBuffer.dataSize) {
         assert(0);
         return false;
@@ -201,14 +191,111 @@ StreamOutput::~StreamOutput()
         free(m_buffer);
 }
 
+static void print_help(void)
+{
+    printf("./h264encode <options>\n");
+    printf("   -i <source yuv filename> load YUV from a file\n");
+    printf("   -W <width> -H <height>\n");
+    printf("   -o <coded file> optional\n");
+    printf("   -b <bitrate> optional\n");
+    printf("   -f <frame rate> optional\n");
+    printf("   -c <codec: AVC|VP8|JPEG> Note: not support now\n");
+    printf("   -s <fourcc: NV12|IYUV|YV12> Note: not support now\n");
+}
+
+static bool process_cmdline(int argc, char *argv[])
+{
+    char opt;
+
+    if (argc < 2) {
+        fprintf(stderr, "can not encode without option, please type 'h264encode -h' to help\n");
+        return false;
+    }
+
+    while ((opt = getopt(argc, argv, "W:H:b:f:c:s:i:o:h:")) != -1)
+    {
+        switch (opt) {
+        case 'h':
+        case '?':
+            print_help ();
+            return false;
+        case 'i':
+            inputFileName = optarg;
+            break;
+        case 'o':
+            outputFileName = optarg;
+            break;
+        case 'W':
+            videoWidth = atoi(optarg);
+            break;
+        case 'H':
+            videoHeight = atoi(optarg);
+            break;
+        case 'b':
+            bitRate = atoi(optarg);
+            break;
+        case 'f':
+            fps = atoi(optarg);
+            break;
+        case 'c':
+            codec = optarg;
+            break;
+        case 's':
+            colorspace = optarg;
+            break;
+        }
+    }
+
+    if (!inputFileName) {
+        fprintf(stderr, "can not encode without input file\n");
+        return false;
+    }
+
+    if (!videoWidth || !videoHeight) {
+        fprintf(stderr, "can not encode without video/height\n");
+        return false;
+    }
+
+    if (!fps)
+        fps = 30;
+
+    if (!bitRate) {
+        int rawBitRate = videoWidth * videoHeight * fps  * 3 / 2 * 8;
+        int EmpiricalVaue = 40;
+        bitRate = rawBitRate / EmpiricalVaue;
+    }
+
+    if (!outputFileName)
+        outputFileName = "test.yuv";
+
+    return true;
+}
+
+void setEncoderParameters(VideoParamsCommon * encVideoParams)
+{
+    //resolution
+    encVideoParams->resolution.width = videoWidth;
+    encVideoParams->resolution.height = videoHeight;
+    
+    //frame rate parameters.
+    encVideoParams->frameRate.frameRateDenom = 1;
+    encVideoParams->frameRate.frameRateNum = fps;
+    
+    //picture type and bitrate
+    encVideoParams->intraPeriod = kIPeriod;
+    encVideoParams->rcMode = RATE_CONTROL_CBR;
+    encVideoParams->rcParams.bitRate = bitRate;
+    //encVideoParams->rcParams.initQP = 26;
+    //encVideoParams->rcParams.minQP = 1;
+    
+    encVideoParams->profile = VAProfileH264Main;
+    encVideoParams->rawFormat = RAW_FORMAT_YUV420;
+    
+    encVideoParams->level = 31;
+}
+
 int main(int argc, char** argv)
 {
-    char *inputFileName = NULL;
-    char *outputFileName = NULL;    
-    char *codec = NULL;
-    char *colorspace = NULL;
-    int videoWidth = 0, videoHeight = 0, bitRate = 0, fps = 0;
-
     StreamInput input;
     StreamOutput output;
     IVideoEncoder *encoder = NULL;
@@ -217,76 +304,8 @@ int main(int argc, char** argv)
     Encode_Status status;
     bool requestSPSPPS = true;
 
-    if (argc < 2) {
-        fprintf(stderr, "can not encode without option\n");
+    if (!process_cmdline(argc, argv))
         return -1;
-    }
-
-    //-------------------------------------------
-    int opt;
-    while ((opt = getopt(argc, argv, "W:H:b:f:c:s:i:o:h")) != -1)
-    {
-        switch (opt) {
-        case 'i':
-            inputFileName = optarg;
-            printf("inputFileName : %s\n", inputFileName);
-            break;
-        case 'o':
-            outputFileName = optarg;
-            printf("outputFileName : %s\n", outputFileName);
-            break;
-        case 'W':
-            videoWidth = atoi(optarg);
-            printf("width : %d\n", videoWidth);
-            break;
-        case 'H':
-            videoHeight = atoi(optarg);
-            printf("height : %d\n", videoHeight);
-            break;
-        case 'b':
-            bitRate = atoi(optarg);
-            printf("bitRate : %d\n", bitRate);
-            break;
-        case 'f':
-            fps = atoi(optarg);
-            printf("fps : %d\n", fps);
-            break;
-        case 'c':
-            codec = optarg;
-            printf ("codec : %s\n", codec);
-            break;
-        case 's':
-            colorspace = optarg;
-            printf("colorspace : %s\n", colorspace);
-            break;
-        case 'h':
-            break;
-        case '?':
-            printf("Unknown option: %c\n", (char)optopt);
-            break;
-        }
-    }
-
-    //-------------------------------------------
-    if (!inputFileName) {
-        fprintf(stderr, "can not encode without input file\n");
-        return -1;
-    } else
-        fprintf(stdout, "yuv fileName: %s\n", inputFileName);
-
-    if (!videoWidth || !videoHeight) {
-        fprintf(stderr, "can not encode without video/height\n");
-        return -1;
-    }
-
-    if (!fps)
-        fps = 30;
-
-    if (!bitRate)
-        bitRate = videoWidth * videoHeight * fps  * 8;
-        
-    if (!outputFileName)
-        outputFileName = "test.yuv";
 
     if (!input.init(inputFileName, videoWidth, videoHeight)) {
         fprintf (stderr, "fail to init input stream\n");
@@ -300,29 +319,7 @@ int main(int argc, char** argv)
     //configure encoding parameters
     VideoParamsCommon encVideoParams;
     encoder->getParameters(&encVideoParams);
-    {
-        //resolution
-        encVideoParams.resolution.width = videoWidth;
-        encVideoParams.resolution.height = videoHeight;
-
-        //frame rate parameters.
-        encVideoParams.frameRate.frameRateDenom = 1;
-        encVideoParams.frameRate.frameRateNum = fps;
-
-        //picture type and bitrate
-        encVideoParams.intraPeriod = kIPeriod;
-        encVideoParams.rcMode = RATE_CONTROL_CBR;
-        //encVideoParams.rcParams.bitRate = videoWidth * videoHeight * kDefaultFramerate * 3 / 2 * 8;//why this is wrong
-        encVideoParams.rcParams.bitRate = bitRate;
-        //encVideoParams.rcParams.initQP = 26;
-        //encVideoParams.rcParams.minQP = 1;
-        
-        encVideoParams.profile = VAProfileH264Main;
-        encVideoParams.rawFormat = RAW_FORMAT_YUV420;
-
-        encVideoParams.level = 31;
-    }
-
+    setEncoderParameters(&encVideoParams);
     encoder->setParameters(&encVideoParams);
     status = encoder->start();
 
@@ -348,7 +345,6 @@ int main(int argc, char** argv)
                 output.outputBuffer.format = OUTPUT_FRAME_DATA;
 
             status = encoder->getOutput(&output.outputBuffer, false);
-            printf("status : %d\n", status);
             if (status == ENCODE_SUCCESS && !output.writeOneOutputFrame())
                 assert(0);
         } while (status != ENCODE_BUFFER_NO_MORE);
@@ -357,11 +353,12 @@ int main(int argc, char** argv)
     // drain the output buffer
     do {
        status = encoder->getOutput(&output.outputBuffer, false);
-       printf("status : %d\n", status);
        if (status == ENCODE_SUCCESS && !output.writeOneOutputFrame())
            assert(0);
     } while (status != ENCODE_BUFFER_NO_MORE);
 
     encoder->stop();
     releaseVideoEncoder(encoder);
+
+    return 0;
 }
