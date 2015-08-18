@@ -54,6 +54,7 @@ using std::list;
 
 //helper function
 namespace YamiMediaCodec{
+#if 0
 static bool vaSelectDriver(VADisplay vaDisplay, const std::string& driverName)
 {
     VAStatus vaStatus=VA_STATUS_SUCCESS;
@@ -63,7 +64,7 @@ static bool vaSelectDriver(VADisplay vaDisplay, const std::string& driverName)
     }
     return checkVaapiStatus(vaStatus, "vaSetDriverName");
 }
-
+#endif
 static bool vaInit(VADisplay vaDisplay)
 {
    int majorVersion, minorVersion;
@@ -316,8 +317,10 @@ DisplayPtr DisplayCache::createDisplay(const NativeDisplay& nativeDisplay, const
         return vaapiDisplay;
     }
 
+#if 0
     if (!driverName.empty())
         vaSelectDriver(vaDisplay, driverName);
+#endif
 
     if (nativeDisplay.type == NATIVE_DISPLAY_VA || vaInit(vaDisplay))
         vaapiDisplay.reset(new VaapiDisplay(nativeDisplayObj, vaDisplay));
