@@ -99,10 +99,12 @@ int main(int argc, char** argv)
     status = decoder->start(&configBuffer);
     assert(status == DECODE_SUCCESS);
 
+    static int num = 0;
     while (!input->isEOS())
     {
         if (input->getNextDecodeUnit(inputBuffer)){
             status = decoder->decode(&inputBuffer);
+            printf("decode the frame %d\n", num++);
         } else
             break;
 

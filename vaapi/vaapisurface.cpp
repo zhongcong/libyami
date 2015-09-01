@@ -75,6 +75,7 @@ SurfacePtr VaapiSurface::create(const DisplayPtr& display,
     format = vaapiChromaToVaChroma(chromaType);
     status = vaCreateSurfaces(display->getID(), format, width, height,
                               &id, 1, surfAttribs, surfAttribNum);
+    printf("surface id : 0x%x\n", id);
     if (!checkVaapiStatus(status, "vaCreateSurfacesWithAttribute()"))
         return surface;
     surface.reset(new VaapiSurface(display, id, chromaType,

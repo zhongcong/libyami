@@ -180,10 +180,18 @@ bool VaapiDecoderVP8::fillPictureParam(const PicturePtr&  picture)
     picParam->frame_width = m_frameWidth;
     picParam->frame_height = m_frameHeight;
     if (m_frameHdr.key_frame) {
+        printf("key frame===========\n");
+        #if 1
         picParam->last_ref_frame = VA_INVALID_SURFACE;
         picParam->golden_ref_frame = VA_INVALID_SURFACE;
         picParam->alt_ref_frame = VA_INVALID_SURFACE;
+        #else
+        picParam->last_ref_frame = m_currentPicture->getSurfaceID();
+        picParam->golden_ref_frame = m_currentPicture->getSurfaceID();
+        picParam->alt_ref_frame = m_currentPicture->getSurfaceID();
+        #endif
     } else {
+        printf("not key frame-------------\n");
         picParam->last_ref_frame =
             m_lastPicture ? m_lastPicture->getSurfaceID() :
             VA_INVALID_SURFACE;

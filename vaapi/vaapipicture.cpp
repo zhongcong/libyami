@@ -54,10 +54,11 @@ bool VaapiPicture::render()
         return false;
 
     bool ret = doRender();
-
+#if 1
     status = vaEndPicture(m_display->getID(), m_context->getID());
     if (!checkVaapiStatus(status, "vaEndPicture()"))
         return false;
+#endif
     return ret;
 }
 
