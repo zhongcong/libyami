@@ -145,6 +145,25 @@ Decode_Status VaapiDecoderVP8::ensureContext()
     return DECODE_SUCCESS;
 }
 
+static void va_TraceVASliceParameterBufferVP8(void *data)
+{
+    VASliceParameterBufferVP8 *p = (VASliceParameterBufferVP8 *)data;
+    int i;
+
+    printf("\t--VASliceParameterBufferVP8\n");
+
+    printf("\tslice_data_size = %d\n", p->slice_data_size);
+    printf("\tslice_data_offset = %d\n", p->slice_data_offset);
+    printf("\tslice_data_flag = %d\n", p->slice_data_flag);
+    printf("\tmacroblock_offset = %d\n", p->macroblock_offset);
+    printf("\tnum_of_partitions = %d\n", p->num_of_partitions);
+
+    for(i = 0; i<9; ++i)
+        printf("\tpartition_size[%d] = %d\n", i, p->partition_size[i]);
+
+    return;
+}
+
 bool VaapiDecoderVP8::fillSliceParam(VASliceParameterBufferVP8* sliceParam)
 {
     /* Fill in VASliceParameterBufferVP8 */
@@ -156,8 +175,77 @@ bool VaapiDecoderVP8::fillSliceParam(VASliceParameterBufferVP8* sliceParam)
         m_frameHdr.first_part_size - ((sliceParam->macroblock_offset + 7) >> 3);
     for (int32_t i = 1; i < sliceParam->num_of_partitions; i++)
         sliceParam->partition_size[i] = m_frameHdr.partition_size[i - 1];
+
+    va_TraceVASliceParameterBufferVP8(sliceParam);
     return TRUE;
 }
+
+static void va_TraceVAPictureParameterBufferVP8(void *data)
+{
+    char tmp[1024];
+    VAPictureParameterBufferVP8 *p = (VAPictureParameterBufferVP8 *)data;
+    int i,j;
+
+    printf("\t--VAPictureParameterBufferVP8\n");
+
+    printf("\tframe_width = %d\n", p->frame_width);
+    printf("\tframe_height = %d\n", p->frame_height);
+    printf("\tlast_ref_frame = %x\n", p->last_ref_frame);
+    printf("\tgolden_ref_frame = %x\n", p->golden_ref_frame);
+    printf("\talt_ref_frame = %x\n", p->alt_ref_frame);
+    printf("\tout_of_loop_frame = %x\n", p->out_of_loop_frame);
+
+    printf("\tkey_frame = %d\n", p->pic_fields.bits.key_frame);
+    printf("\tversion = %d\n", p->pic_fields.bits.version);
+    printf("\tsegmentation_enabled = %d\n", p->pic_fields.bits.segmentation_enabled);
+    printf("\tupdate_mb_segmentation_map = %d\n", p->pic_fields.bits.update_mb_segmentation_map);
+    printf("\tupdate_segment_feature_data = %d\n", p->pic_fields.bits.update_segment_feature_data);
+    printf("\tfilter_type = %d\n", p->pic_fields.bits.filter_type);
+    printf("\tsharpness_level = %d\n", p->pic_fields.bits.sharpness_level);
+    printf("\tloop_filter_adj_enable = %d\n", p->pic_fields.bits.loop_filter_adj_enable);
+    printf("\tmode_ref_lf_delta_update = %d\n", p->pic_fields.bits.mode_ref_lf_delta_update);
+    printf("\tsign_bias_golden = %d\n", p->pic_fields.bits.sign_bias_golden);
+    printf("\tsign_bias_alternate = %d\n", p->pic_fields.bits.sign_bias_alternate);
+    printf("\tmb_no_coeff_skip = %d\n", p->pic_fields.bits.mb_no_coeff_skip);
+    printf("\tloop_filter_disable = %d\n", p->pic_fields.bits.loop_filter_disable);
+
+    printf("\tmb_segment_tree_probs: 0x%2x, 0x%2x, 0x%2x\n",
+        p->mb_segment_tree_probs[0], p->mb_segment_tree_probs[1], p->mb_segment_tree_probs[2]);
+
+    printf("\tloop_filter_level: %d, %d, %d, %d\n",
+        p->loop_filter_level[0], p->loop_filter_level[1], p->loop_filter_level[2], p->loop_filter_level[3]);
+
+    printf("\tloop_filter_deltas_ref_frame: %d, %d, %d, %d\n",
+        p->loop_filter_deltas_ref_frame[0], p->loop_filter_deltas_ref_frame[1], p->loop_filter_deltas_ref_frame[2], p->loop_filter_deltas_ref_frame[3]);
+
+    printf("\tloop_filter_deltas_mode: %d, %d, %d, %d\n",
+        p->loop_filter_deltas_mode[0], p->loop_filter_deltas_mode[1], p->loop_filter_deltas_mode[2], p->loop_filter_deltas_mode[3]);
+
+    printf("\tprob_skip_false = %2x\n", p->prob_skip_false);
+    printf("\tprob_intra = %2x\n", p->prob_intra);
+    printf("\tprob_last = %2x\n", p->prob_last);
+    printf("\tprob_gf = %2x\n", p->prob_gf);
+
+    printf("\ty_mode_probs: 0x%2x, 0x%2x, 0x%2x, 0x%2x\n",
+        p->y_mode_probs[0], p->y_mode_probs[1], p->y_mode_probs[2], p->y_mode_probs[3]);
+
+    printf("\tuv_mode_probs: 0x%2x, 0x%2x, 0x%2x\n",
+        p->uv_mode_probs[0], p->uv_mode_probs[1], p->uv_mode_probs[2]);
+
+    printf("\tmv_probs[2][19]:\n");
+    for(i = 0; i<2; ++i) {
+        memset(tmp, 0, sizeof tmp);
+        for (j=0; j<19; j++)
+            sprintf(tmp + strlen(tmp), "%2x ", p->mv_probs[i][j]);
+        printf("\t\t[%d] = %s\n", i, tmp);
+    }
+
+    printf("\tbool_coder_ctx: range = %02x, value = %02x, count = %d\n",
+        p->bool_coder_ctx.range, p->bool_coder_ctx.value, p->bool_coder_ctx.count);
+
+    return;
+}
+
 
 bool VaapiDecoderVP8::fillPictureParam(const PicturePtr&  picture)
 {
@@ -265,8 +353,30 @@ bool VaapiDecoderVP8::fillPictureParam(const PicturePtr&  picture)
     picParam->bool_coder_ctx.value = m_frameHdr.rd_value;
     picParam->bool_coder_ctx.count = m_frameHdr.rd_count;
 
+    va_TraceVAPictureParameterBufferVP8(picParam);
+
     return true;
 }
+
+static void va_TraceVAIQMatrixBufferVP8(void *data)
+{
+    char tmp[1024];
+    VAIQMatrixBufferVP8 *p = (VAIQMatrixBufferVP8 *)data;
+    int i,j;
+
+    printf("\t--VAIQMatrixBufferVP8\n");
+
+    printf("\tquantization_index[4][6]=\n");
+    for (i = 0; i < 4; i++) {
+        memset(tmp, 0, sizeof tmp);
+        for (j = 0; j < 6; j++)
+            sprintf(tmp + strlen(tmp), "%4x, ", p->quantization_index[i][j]);
+        printf("\t\t[%d] = %s\n", i, tmp);
+    }
+
+    return;
+}
+
 
 /* fill quant parameter buffers functions*/
 bool VaapiDecoderVP8::ensureQuantMatrix(const PicturePtr&  pic)
@@ -325,7 +435,30 @@ bool VaapiDecoderVP8::ensureQuantMatrix(const PicturePtr&  pic)
         iqMatrix->quantization_index[i][5] = tempIndex;
     }
 
+    va_TraceVAIQMatrixBufferVP8(iqMatrix);
+
     return true;
+}
+
+static void va_TraceVAProbabilityBufferVP8(void *data)
+{
+    char tmp[1024];
+    VAProbabilityDataBufferVP8 *p = (VAProbabilityDataBufferVP8 *)data;
+
+    int i,j,k,l;
+
+    printf("\t--VAProbabilityDataBufferVP8\n");
+
+    for (i = 0; i < 4; i++)
+        for (j = 0; j < 8; j++) {
+            memset(tmp, 0, sizeof tmp);
+            for (k=0; k<3; k++)
+                for (l=0; l<11; l++)
+                    sprintf(tmp + strlen(tmp), "%2x, ", p->dct_coeff_probs[i][j][k][l]);
+            printf("\t\t[%d, %d] = %s\n", i, j, tmp);
+        }
+
+    return;
 }
 
 /* fill quant parameter buffers functions*/
@@ -339,6 +472,8 @@ bool VaapiDecoderVP8::ensureProbabilityTable(const PicturePtr&  pic)
     memcpy (probTable->dct_coeff_probs, 
 		   m_frameHdr.token_probs.prob,
            sizeof (m_frameHdr.token_probs.prob));
+
+    va_TraceVAProbabilityBufferVP8(probTable);
     return true;
 }
 
